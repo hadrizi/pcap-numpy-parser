@@ -1,4 +1,3 @@
-//maccdc2012_00000.pcap
 #if !defined(WIN32) && !defined(WINx64)
 #include "in.h" // this is for using ntohs() and htons() on non-Windows OS's
 #endif
@@ -144,6 +143,8 @@ namespace{
         }
     }
 
+    // NOT USED
+    // use it as example of how to handle layers
     void getPcapData(char* filename)
     {
         // use the IFileReaderDevice interface to automatically identify file type (pcap/pcap-ng)
@@ -274,7 +275,6 @@ namespace{
     {
         return 1.0f;
     }
-
 }
 
 void readPcapFile(std::string filename, long double features[], bool log = false)
@@ -320,15 +320,15 @@ void readPcapFile(std::string filename, long double features[], bool log = false
     unsigned int portDst = 0;
     if (!firstPacketTcpLayer == NULL)
         portDst = (int)ntohs(firstPacketTcpLayer->getTcpHeader()->portDst);
-
+    
+    unsigned int urgents = 0;
+    unsigned int brokens = 0;
+    unsigned int failedLogins = 0;
+    bool loggedIn = false;
     do
     {
         unsigned int data = 0;
-        unsigned int urgents = 0;
-        unsigned int brokens = 0;
-        unsigned int hots = 0;
-        unsigned int failedLoggins = 0;
-        bool loggedIn = false;
+
         // parse the raw packet into a parsed packet
         pcpp::Packet parsedPacket(&rawPacket);
 
@@ -350,23 +350,43 @@ void readPcapFile(std::string filename, long double features[], bool log = false
             }
         }
 
+        if(parsedPacket.getLayerOfType<pcpp::TcpLayer>() != NULL and parsedPacket.getLayerOfType<pcpp::TcpLayer>()->getTcpHeader()->urgFlag)
+            ++urgents;
+        if(parsedPacket.getLayerOfType<pcpp::IPv4Layer>() == NULL)
+            ++brokens;
+        if(parsedPacket.getLayerOfType<pcpp::HttpResponseLayer>() != NULL)
+        {
+            pcpp::HttpResponseLayer* httpResponse = parsedPacket.getLayerOfType<pcpp::HttpResponseLayer>();
+            if(httpResponse->getFirstLine()->getStatusCode() ==  pcpp::HttpResponseLayer::Http401Unauthorized)
+                ++failedLogins;
+            if(httpResponse->getFirstLine()->getStatusCode() ==  pcpp::HttpResponseLayer::Http200OK)
+                loggedIn = true;
+        }
+
         if(parsedPacket.getLayerOfType<pcpp::IPv4Layer>() != NULL)
         {
             pcpp::IPv4Address IP = parsedPacket.getLayerOfType<pcpp::IPv4Layer>()->getSrcIpAddress();
             if(IP == srcIP) sourceData += data;
             if(IP == dstIP) destData += data;
         }
+        
+
+
     } while (reader->getNextPacket(rawPacket));
     
     time_t end_conn = rawPacket.getPacketTimeStamp().tv_sec;
 
     features[0] = getFeature1(start_conn, end_conn);
     features[1] = getFeature2(firstPacketLastLayer->getProtocol());
-    features[3] = portDst;
-    features[4] = 0.0f;
-    features[5] = sourceData;
-    features[6] = destData;
-    features[7] = srcIP == dstIP ? 1.0f : 0.0f;
+    features[2] = portDst;
+    features[3] = 0.0f;
+    features[4] = sourceData;
+    features[5] = destData;
+    features[6] = srcIP == dstIP ? 1.0f : 0.0f;
+    features[7] = brokens;
+    features[8] = urgents;
+    features[9] = failedLogins;
+    features[10] = loggedIn;
 
     // close the file reader
     reader->close();
@@ -416,8 +436,6 @@ int main(int argc, char* argv[])
     }
 
     // //getPcapData(argv[1]);
-
-
 
     // for (int i = 0; i < SIZE; i++)
     //     c_arr[i] = i;
