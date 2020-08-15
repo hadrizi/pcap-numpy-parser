@@ -1,9 +1,9 @@
 include /usr/local/etc/PcapPlusPlus.mk
 
 SYSCONF_LINK = g++
-CPPFLAGS     = -O2 -g
+CPPFLAGS     = -O2 -g -std=c++17
 LDFLAGS      = 
-LIBS         = -lm -lpython3.6m
+LIBS         = -lm -lpython3.6m -lstdc++fs
 
 DESTDIR = ./
 TARGET  = main
