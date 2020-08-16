@@ -4,6 +4,7 @@
 
 
 import numpy as np
+import pandas as pd
 import joblib
 
 from tensorflow.keras.models import Model
@@ -44,6 +45,11 @@ class BinaryClassifier():
         """
         Preprocess data.
         """
+        
+        X = pd.DataFrame(X, columns=config.columns)
+        X["protocol_type"] = X["protocol_type"].replace(config.protocol_type_dct)
+        X["service"] = X["service"].replace(config.service_dct)
+        X["flag"] = X["flag"].replace(config.flag_dct)
         
         return self.pipeline.transform(X)
     
@@ -106,15 +112,20 @@ class MultyClassifier():
         Preprocess data.
         """
         
-        X_prep = self.pipeline.transform(X)
-        X_cl_1 = self.kmeans_2.transform(self.pca_2.transform(X_prep))
-        X_prep = np.hstack([X_prep, X_cl_1])
-        X_cl_2 = self.kmeans_3.transform(self.pca_3.transform(X_prep))
-        X_prep = np.hstack([X_prep, X_cl_2])
-        X_cl_3 = self.kmeans_4.transform(self.pca_4.transform(X_prep))
-        X_prep = np.hstack([X_prep, X_cl_3])
+        X = pd.DataFrame(X, columns=config.columns)
+        X["protocol_type"] = X["protocol_type"].replace(config.protocol_type_dct)
+        X["service"] = X["service"].replace(config.service_dct)
+        X["flag"] = X["flag"].replace(config.flag_dct)
         
-        return X_prep
+        X = self.pipeline.transform(X)
+        X_cl = self.kmeans_2.transform(self.pca_2.transform(X))
+        X = np.hstack([X, X_cl])
+        X_cl = self.kmeans_3.transform(self.pca_3.transform(X))
+        X = np.hstack([X, X_cl])
+        X_cl = self.kmeans_4.transform(self.pca_4.transform(X))
+        X = np.hstack([X, X_cl])
+        
+        return X
     
     
     def create_model(self):

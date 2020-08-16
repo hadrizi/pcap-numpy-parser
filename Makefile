@@ -12,6 +12,7 @@ OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 INCLUDES += $(PCAPPP_INCLUDES)
 INCLUDES += -I/usr/include/python3.6
 INCLUDES += -I/usr/include/numpy
+INCLUDES += -I/usr/include/spdlog
 LIBS += $(PCAPPP_LIBS)
 
 LIBS_DIR = -L/usr/local/lib

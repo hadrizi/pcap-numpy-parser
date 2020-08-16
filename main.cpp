@@ -3,8 +3,10 @@
 #endif
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#define SIZE 30
-#define FEATURES_AMOUNT 41
+#define PSIZE 30
+#define FEATURES_AMOUNT 16
+
+#include "out.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +25,7 @@
 
 #include <Python.h>
 #include <numpy/arrayobject.h>
+
 
 namespace fs = std::experimental::filesystem;
 namespace{
@@ -460,30 +463,22 @@ void readPcapFile(std::string filename,
     const int avr_rej = dst_host_count>0 ? dst_host_count : 1;
     const int avg_rej_src = dst_host_srv_count>0 ? dst_host_srv_count : 1;
 
-    features[0] = getFeature1(start_conn, end_conn);
-    features[1] = getFeature2(firstPacketLastLayer->getProtocol());
-    features[2] = portDst;
-    features[3] = rej_flag;
-    features[4] = sourceData;
-    features[5] = destData;
-    features[6] = srcIP == dstIP ? 1.0f : 0.0f;
-    features[7] = brokens;
-    features[8] = urgents;
-    features[9] = hots;
-    features[10] = failedLogins;
-    features[11] = loggedIn;
-    features[22] = 0.0;
-    features[24] = 0.0;
-    features[25] = 0.0;
-    features[26] = 0.0;
-    features[28] = 0.0;
-    features[31] = dst_host_count;
-    features[32] = dst_host_srv_count;
-    features[35] = dst_host_same_src_port_rate;
-    features[37] = serror_count/avr_rej; //Only for REJ does not count flags  S0, S1, S2, S3
-    features[38] = serror_count/avg_rej_src; //Only for REJ does not count flags  S0, S1, S2, S3
-    features[39] = 0.0;
-    features[40] = 0.0;
+    features[0] = getFeature1(start_conn, end_conn); //present
+    features[1] = getFeature2(firstPacketLastLayer->getProtocol()); //present
+    features[2] = portDst; //present
+    features[3] = rej_flag; //present
+    features[4] = sourceData; //present
+    features[5] = destData; //present
+    features[6] = srcIP == dstIP ? 1.0f : 0.0f; //present
+    features[7] = brokens; //present
+    features[8] = urgents; //present
+    features[9] = 0.0;//present
+    features[10] = 0.0;//present
+    features[11] = dst_host_count;
+    features[12] = dst_host_srv_count;
+    features[13] = dst_host_same_src_port_rate;
+    features[14] = serror_count/avr_rej;
+    features[15] = serror_count/avg_rej_src; //Only for REJ does not count flags  S0, S1, S2, S3
 
     // close the file reader and clean data
     pkgSequence.clear();
@@ -519,7 +514,7 @@ void parse(char* path, long double arr[][FEATURES_AMOUNT])
             last100serror.erase(last100serror.begin());
         }
         ++i;
-        if(i == SIZE) break;
+        if(i == PSIZE) break;
     }
 }
 
@@ -536,18 +531,18 @@ int main(int argc, char* argv[])
     import_array();
 
     const int ND = 2;
-    npy_intp dims[2]{SIZE, FEATURES_AMOUNT};
-    long double(*c_arr)[FEATURES_AMOUNT]{ new long double[SIZE][FEATURES_AMOUNT] };
-    for (int i = 0; i < SIZE; i++)
+    npy_intp dims[2]{PSIZE, FEATURES_AMOUNT};
+    long double(*c_arr)[FEATURES_AMOUNT]{ new long double[PSIZE][FEATURES_AMOUNT] };
+    for (int i = 0; i < PSIZE; i++)
         for(int j = 0; j < FEATURES_AMOUNT; j++)
             c_arr[i][j] = .0f;
 
     parse(argv[1], c_arr);
 
-    for (int i = 0; i < 30; i++)
+    for (int i = 0; i < PSIZE; i++)
     {
-        for(int j = 0; j < 40; j++)
-            std::cout << std::setprecision(0) << std::fixed << std::setw(4) << std::setfill(' ') << c_arr[i][j];
+        for(int j = 0; j < FEATURES_AMOUNT; j++)
+            std::cout << std::setprecision(0) << std::fixed << std::setw(10) << std::setfill(' ') << c_arr[i][j];
         std::cout << std::endl;
     }
 
@@ -574,7 +569,6 @@ int main(int argc, char* argv[])
         return 1;
     }
     Py_DECREF(pModule);
-    puts("1");
 
     // Build pyhton class
     PyObject *pClass = PyDict_GetItemString(dict, "MultyClassifier");
@@ -584,7 +578,6 @@ int main(int argc, char* argv[])
         return 1;
     }
     Py_DECREF(dict);
-    puts("1");
 
     // Creates an instance of the class
     PyObject *object;
@@ -596,7 +589,6 @@ int main(int argc, char* argv[])
         Py_DECREF(pClass);
         return 1;
     }
-    puts("1");
 
     // Get our value
     PyObject *value = PyObject_CallMethod(object, argv[3], "N", pArray);
@@ -605,18 +597,36 @@ int main(int argc, char* argv[])
     else
         PyErr_Print();
     PyArrayObject *np_ret = reinterpret_cast<PyArrayObject*>(value);
-    puts("1");
 
     // Convert back to C++ array and print.
-    int len = PyArray_SHAPE(np_ret)[0];
-    long double* c_out;
-    c_out = reinterpret_cast<long double*>(PyArray_DATA(np_ret));
-    std::cout << "Printing output array - C++" << std::endl;
-    for (int i = 0; i < len; i++){
-        std::cout << c_out[i] << ' ';
+    //int len = PyArray_SHAPE(np_ret)[0];
+    //long double* c_out;
+    //c_out = reinterpret_cast<long double*>(PyArray_DATA(np_ret));
+    // std::cout << std::endl << "Printing output array - C++" << std::endl;
+    // for (int i = 0; i < PSIZE; i++){
+    //     std::cout << *((int *)PyArray_GETPTR1(np_ret, i)) << ' ';
+    // }
+
+	Timer timer;
+    int i=1;
+
+    while (int(timer.elapsed())<10 )
+    {
+        // print_binary_header(i, timer);
+        print_complex_header(timer, i*2, i);
+
+        while (i%PSIZE!=0)
+        {
+            //std::size_t h1 = std::hash<std::string>{}(i);
+            print_complex_connection_decision("", "", *((int *)PyArray_GETPTR1(np_ret, i%PSIZE)));
+            // print_binary_descion(i%5);
+            //std::cout << *((int *)PyArray_GETPTR1(np_ret, i%PSIZE)) << ' ';
+            i++;
+        }
+        std::system("clear");
+        i++;
     }
-    std::cout << std::endl << std::endl;
-    
+
     Py_Finalize();
     return 0;
 }
