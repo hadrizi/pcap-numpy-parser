@@ -12,5 +12,5 @@ sudo ln -s ~/.local/lib/python3.6/site-packages/numpy/core/include/numpy /usr/in
 https://pcapplusplus.github.io/docs/install/build-source/linux
 ./configure-linux.sh --default
 
-This project was made for AC-VO&PPR Hackathon 2020
-Additional thanks to @kibarik and my team @BoxCoxWitnesses
+This project was made for __AC-VO&PPR Hackathon 2020__ \
+Additional thanks to (@kibarik)[https://github.com/kibarik] and my team (@BoxCoxWitnesses)[https://github.com/BoxCoxWitnesses]
