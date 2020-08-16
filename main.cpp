@@ -4,7 +4,7 @@
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define SIZE 30
-#define FEATURES_AMOUNT 40
+#define FEATURES_AMOUNT 41
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -313,8 +313,18 @@ namespace{
  * Splitted .PCAP is a one connection
  * 
  */
-void readPcapFile(std::string filename, long double features[], bool log = false)
+void readPcapFile(std::string filename, 
+    long double features[],  
+    std::vector<bool> last100serror,
+    std::vector<int> last100dstPorts,
+    std::vector<pcpp::IPv4Address> last100dstIps,  
+    bool log = false 
+) 
 {
+    const int elCount = 0;
+
+    std::cout << "hi";
+
     // use the IFileReaderDevice interface to automatically identify file type (pcap/pcap-ng)
     // and create an interface instance that both readers implement
     pcpp::IFileReaderDevice* reader = pcpp::IFileReaderDevice::getReader(filename.c_str());
@@ -343,7 +353,7 @@ void readPcapFile(std::string filename, long double features[], bool log = false
 
     pcpp::Packet firstParsedPacket(&rawPacket);
 
-    
+    std::cout << "1";
     time_t start_conn = rawPacket.getPacketTimeStamp().tv_sec;
 
     long double sourceData = 0;
@@ -355,16 +365,21 @@ void readPcapFile(std::string filename, long double features[], bool log = false
     pcpp::TcpLayer* firstPacketTcpLayer = firstParsedPacket.getLayerOfType<pcpp::TcpLayer>(); // to find port
 
     unsigned int portDst = 0;
+    unsigned int portSrc = 0;
     unsigned int urgents = 0;
     unsigned int brokens = 0;
     unsigned int failedLogins = 0;
     bool loggedIn = false;
- 
-    bool isSrcSentSyn = false;
-    bool isDstSentRst = false;
+    unsigned int hots = 0;
 
-    if (!firstPacketTcpLayer == NULL)
+
+    if (!firstPacketTcpLayer == NULL){
         portDst = (int)ntohs(firstPacketTcpLayer->getTcpHeader()->portDst);
+        portSrc = (int)ntohs(firstPacketTcpLayer->getTcpHeader()->portSrc);
+
+        last100dstPorts.push_back(portDst);
+        last100dstIps.push_back(dstIP);
+    }
 
      /*
         ====================================================
@@ -382,12 +397,11 @@ void readPcapFile(std::string filename, long double features[], bool log = false
                                             PayloadLayer data
     */
 
+    std::cout << "2";
     std::vector<std::pair<pcpp::IPv4Address, pcpp::tcphdr*>> pkgSequence;
     do  // Connection level .PCAP splitted so 1 file = 1 connection
     {
         unsigned int data = 0;
-
-        unsigned int hots = 0;
 
 
         // TODO now it doesn't work with IPv6Layer. So it may losts some results 
@@ -445,25 +459,50 @@ void readPcapFile(std::string filename, long double features[], bool log = false
         }
         
 
-
     } while (reader->getNextPacket(rawPacket));
     
-    // After connection analyze create a features string
+    // // After connection analyze create a features string
     time_t end_conn = rawPacket.getPacketTimeStamp().tv_sec;
+
+    std::cout<<"5";
+    const int dst_host_count =  std::count(last100dstIps.begin(), last100dstIps.end(), dstIP);
+    const int dst_host_srv_count = std::count(last100dstPorts.begin(), last100dstPorts.end(), portDst);
+    const double dst_host_same_src_port_rate = std::count(last100dstPorts.begin(), last100dstPorts.end(), portSrc)/(elCount+1);
+    const double rej_flag = is_rej_flag(pkgSequence);
+    std::cout<<"6";
+
+    last100serror.push_back((bool)rej_flag); 
+    int serror_count = std::count(last100serror.begin(), last100serror.end(), true);
+    const int avr_rej = dst_host_count>0 ? dst_host_count : 1;
+    const int avg_rej_src = dst_host_srv_count>0 ? dst_host_srv_count : 1;
 
     features[0] = getFeature1(start_conn, end_conn);
     features[1] = getFeature2(firstPacketLastLayer->getProtocol());
     features[2] = portDst;
-    features[3] = is_rej_flag(pkgSequence);
+    features[3] = rej_flag;
     features[4] = sourceData;
     features[5] = destData;
     features[6] = srcIP == dstIP ? 1.0f : 0.0f;
     features[7] = brokens;
     features[8] = urgents;
-    features[9] = failedLogins;
-    features[10] = loggedIn;
+    features[9] = hots;
+    features[10] = failedLogins;
+    features[11] = loggedIn;
+    features[22] = 0.0;
+    features[24] = 0.0;
+    features[25] = 0.0;
+    features[26] = 0.0;
+    features[28] = 0.0;
+    features[31] = dst_host_count;
+    features[32] = dst_host_srv_count;
+    features[35] = dst_host_same_src_port_rate;
+    features[37] = serror_count/avr_rej; //Only for REJ does not count flags  S0, S1, S2, S3
+    features[38] = serror_count/avg_rej_src; //Only for REJ does not count flags  S0, S1, S2, S3
+    features[39] = 0.0;
+    features[40] = 0.0;
 
-    // close the file reader and clean data
+
+    // // close the file reader and clean data
     pkgSequence.clear();
     reader->close();
 }
@@ -477,11 +516,25 @@ void parse(char* path, long double arr[][FEATURES_AMOUNT])
     // for iterating value
     int i = 0;
 
+
+    // There is a bad thing to usr lots of vectors
+    // with simple std structs instead of connection structure. 
+    // But we didn't have time to refactor the code architecture.
+    std::vector<bool> last100serror;
+    std::vector<int> last100dstPorts;
+    std::vector<pcpp::IPv4Address> last100dstIps;
+
+
     for (const auto & entry : fs::directory_iterator(path))
     {
         std::cout << entry.path() << " is now parsing" << std::endl;
-        readPcapFile(entry.path().string(), arr[i]);
 
+        readPcapFile(entry.path().string(), arr[i], last100serror, last100dstPorts, last100dstIps);
+        if(i>100){
+            last100dstPorts.erase (last100dstPorts.begin());
+            last100dstIps.erase (last100dstIps.begin());
+            last100serror.erase(last100serror.begin());
+        }
         ++i;
     }
 }
