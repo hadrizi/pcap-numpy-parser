@@ -552,32 +552,70 @@ int main(int argc, char* argv[])
     }
 
     // //getPcapData(argv[1]);
+    // Here we create numpy array from c array
+    PyObject *pArray = PyArray_SimpleNewFromData(ND, dims, NPY_LONGDOUBLE, reinterpret_cast<void*>(c_arr));
 
-    // for (int i = 0; i < SIZE; i++)
-    //     c_arr[i] = i;
+    // Import mymodule
+    const char *module_name = argv[2];
+    PyObject *pName = PyUnicode_FromString(module_name);
+    PyObject *pModule = PyImport_Import(pName);
+    if (pModule == nullptr) {
+        PyErr_Print();
+        std::cerr << "Fails to import the module.\n";
+        return 1;
+    }
+    Py_DECREF(pName);
 
-    // // Here we create numpy array from c array
-    // PyObject *pArray = PyArray_SimpleNewFromData(ND, dims, NPY_LONGDOUBLE, reinterpret_cast<void*>(c_arr));
+    // Get dictionary
+    PyObject *dict = PyModule_GetDict(pModule);
+    if (dict == nullptr) {
+        PyErr_Print();
+        std::cerr << "Fails to get the dictionary.\n";
+        return 1;
+    }
+    Py_DECREF(pModule);
+    puts("1");
 
-    // // Import mymodule
-    // const char *module_name = argv[2];
-    // PyObject *pName = PyUnicode_FromString(module_name);
-    // PyObject *pModule = PyImport_Import(pName);
-    // Py_DECREF(pName);
+    // Build pyhton class
+    PyObject *pClass = PyDict_GetItemString(dict, "MultyClassifier");
+    if (pClass == nullptr) {
+        PyErr_Print();
+        std::cerr << "Fails to get the Python class.\n";
+        return 1;
+    }
+    Py_DECREF(dict);
+    puts("1");
 
-    // // Import function
-    // const char *func_name = argv[3];
-    // PyObject *pFunc = PyObject_GetAttrString(pModule, func_name);
-    // PyObject *pReturn = PyObject_CallFunctionObjArgs(pFunc, pArray, NULL);
-    // //PyFloatObject *np_ret = reinterpret_cast<PyFloatObject*>(pReturn);
+    // Creates an instance of the class
+    PyObject *object;
+    if (PyCallable_Check(pClass)) {
+        object = PyObject_CallObject(pClass, nullptr);
+        Py_DECREF(pClass);
+    } else {
+        std::cout << "Cannot instantiate the Python class" << std::endl;
+        Py_DECREF(pClass);
+        return 1;
+    }
+    puts("1");
 
-    // // Convert back to C++ and print.
-    // // int len = PyArray_SHAPE(np_ret)[0];
-    // double c_out;
-    // //c_out = reinterpret_cast<long double>(pReturn);
-    // c_out = PyFloat_AsDouble(pReturn);
-    // std::cout << "Printing output - C++" << std::endl;
-    // std::cout << c_out << std::endl << std::endl;
+    // Get our value
+    PyObject *value = PyObject_CallMethod(object, argv[3], "N", pArray);
+    if (value)
+        Py_DECREF(value);   
+    else
+        PyErr_Print();
+    PyArrayObject *np_ret = reinterpret_cast<PyArrayObject*>(value);
+    puts("1");
+
+    // Convert back to C++ array and print.
+    int len = PyArray_SHAPE(np_ret)[0];
+    long double* c_out;
+    c_out = reinterpret_cast<long double*>(PyArray_DATA(np_ret));
+    std::cout << "Printing output array - C++" << std::endl;
+    for (int i = 0; i < len; i++){
+        std::cout << c_out[i] << ' ';
+    }
+    std::cout << std::endl << std::endl;
     
     Py_Finalize();
     return 0;
