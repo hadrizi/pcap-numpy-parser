@@ -3,14 +3,14 @@ include /usr/local/etc/PcapPlusPlus.mk
 SYSCONF_LINK = g++
 CPPFLAGS     = -O2 -g -std=c++17
 LDFLAGS      = 
-LIBS         = -lm -lpython3.6m -lstdc++fs
+LIBS         = -lm -lpython3.8 -lstdc++fs
 
 DESTDIR = ./
 TARGET  = main
 OBJECTS := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 
 INCLUDES += $(PCAPPP_INCLUDES)
-INCLUDES += -I/usr/include/python3.6
+INCLUDES += -I/usr/include/python3.8
 INCLUDES += -I/usr/include/numpy
 LIBS += $(PCAPPP_LIBS)
 
