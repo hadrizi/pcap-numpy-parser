@@ -5,8 +5,8 @@
 
 DATA_PATH = "data/"
 
-MODEL_BINARY_PATH = "models/binary"
-PREPROC_BINARY_PATH = "preproc/binary"
+MODEL_BINARY_PATH = "models/binary/"
+PREPROC_BINARY_PATH = "preproc/binary/"
 
 MODEL_MULTY_PATH = "models/multy/"
 PREPROC_MULTY_PATH = "preproc/multy/"
