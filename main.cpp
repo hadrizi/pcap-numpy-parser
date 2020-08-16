@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>  
 
 #include <string>
 #include <iostream>
@@ -23,6 +24,7 @@
 
 #include <Python.h>
 #include <numpy/arrayobject.h>
+
 
 namespace fs = std::experimental::filesystem;
 namespace{
@@ -323,8 +325,6 @@ void readPcapFile(std::string filename,
 {
     const int elCount = 0;
 
-    std::cout << "hi";
-
     // use the IFileReaderDevice interface to automatically identify file type (pcap/pcap-ng)
     // and create an interface instance that both readers implement
     pcpp::IFileReaderDevice* reader = pcpp::IFileReaderDevice::getReader(filename.c_str());
@@ -353,7 +353,6 @@ void readPcapFile(std::string filename,
 
     pcpp::Packet firstParsedPacket(&rawPacket);
 
-    std::cout << "1";
     time_t start_conn = rawPacket.getPacketTimeStamp().tv_sec;
 
     long double sourceData = 0;
@@ -397,7 +396,6 @@ void readPcapFile(std::string filename,
                                             PayloadLayer data
     */
 
-    std::cout << "2";
     std::vector<std::pair<pcpp::IPv4Address, pcpp::tcphdr*>> pkgSequence;
     do  // Connection level .PCAP splitted so 1 file = 1 connection
     {
@@ -464,12 +462,10 @@ void readPcapFile(std::string filename,
     // // After connection analyze create a features string
     time_t end_conn = rawPacket.getPacketTimeStamp().tv_sec;
 
-    std::cout<<"5";
     const int dst_host_count =  std::count(last100dstIps.begin(), last100dstIps.end(), dstIP);
     const int dst_host_srv_count = std::count(last100dstPorts.begin(), last100dstPorts.end(), portDst);
     const double dst_host_same_src_port_rate = std::count(last100dstPorts.begin(), last100dstPorts.end(), portSrc)/(elCount+1);
     const double rej_flag = is_rej_flag(pkgSequence);
-    std::cout<<"6";
 
     last100serror.push_back((bool)rej_flag); 
     int serror_count = std::count(last100serror.begin(), last100serror.end(), true);
@@ -488,18 +484,19 @@ void readPcapFile(std::string filename,
     features[9] = hots;
     features[10] = failedLogins;
     features[11] = loggedIn;
-    features[22] = 0.0;
-    features[24] = 0.0;
-    features[25] = 0.0;
-    features[26] = 0.0;
-    features[28] = 0.0;
+    features[22] = rand() % 500;
+    features[24] = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);
+    features[25] = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);
+    features[26] = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);
+    features[28] = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);
     features[31] = dst_host_count;
     features[32] = dst_host_srv_count;
     features[35] = dst_host_same_src_port_rate;
     features[37] = serror_count/avr_rej; //Only for REJ does not count flags  S0, S1, S2, S3
     features[38] = serror_count/avg_rej_src; //Only for REJ does not count flags  S0, S1, S2, S3
-    features[39] = 0.0;
-    features[40] = 0.0;
+    features[39] = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);
+    features[40] = static_cast <double> (rand()) / static_cast <double> (RAND_MAX);
+;
 
 
     // // close the file reader and clean data
@@ -541,6 +538,7 @@ void parse(char* path, long double arr[][FEATURES_AMOUNT])
 
 int main(int argc, char* argv[])
 {
+    srand (time(NULL));
     if(argc != 4)
     {
         puts("Invalid input");
@@ -563,7 +561,7 @@ int main(int argc, char* argv[])
     for (int i = 0; i < 30; i++)
     {
         for(int j = 0; j < 40; j++)
-            std::cout << std::setprecision(0) << std::fixed << std::setw(4) << std::setfill(' ') << c_arr[i][j];
+            std::cout << std::setprecision(1) << std::fixed << std::setw(4) << std::setfill(' ') << c_arr[i][j];
         std::cout << std::endl;
     }
 
